@@ -164,7 +164,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
                         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 30px;">
                           <tr>
                             <td align="center">
-                              <a href="${process.env.CLIENT_URL || "http://localhost:3000"}" style="display: inline-block; padding: 14px 30px; background-color: #cc0000; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">Start Watching Now</a>
+                              <a href="${process.env.CLIENT_URL ||"https://yourtubeclone-sp103-gqsn2rkck-financeaiadvisors-projects.vercel.app/premium"}" style="display: inline-block; padding: 14px 30px; background-color: #cc0000; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">Start Watching Now</a>
                             </td>
                           </tr>
                         </table>
