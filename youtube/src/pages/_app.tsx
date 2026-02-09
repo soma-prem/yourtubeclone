@@ -2,12 +2,13 @@ import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import "@/styles/globals.css";
-import { User } from "lucide-react";
 import { UserProvider, useUser } from "../lib/AuthContext";
 import { ThemeProvider } from "../lib/ThemeContext";
 import type { AppProps } from "next/app";
 
-function AppContent({ Component, pageProps }: AppProps) {
+type AppContentProps = Pick<AppProps, "Component" | "pageProps">;
+
+function AppContent({ Component, pageProps }: AppContentProps) {
   const { theme } = useUser();
   
   return (
