@@ -29,9 +29,12 @@ const Header = () => {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
-  const handleKeyPress = (e: KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      handleSearch(e as any);
+      e.preventDefault();
+      if (searchQuery.trim()) {
+        router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      }
     }
   };
   return (
@@ -59,7 +62,7 @@ const Header = () => {
             type="search"
             placeholder="Search"
             value={searchQuery}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             className="rounded-l-full border-r-0 focus-visible:ring-0"
             onChange={(e) => setSearchQuery(e.target.value)}
           />
