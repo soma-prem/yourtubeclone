@@ -1,0 +1,30 @@
+# dependencies
+**/node_modules/
+
+# next.js
+**/.next/
+**/out/
+
+# env files
+**/.env
+**/.env.*
+!.env.example
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# build artifacts
+dist/
+.dist/
+coverage/
+
+# uploads
+server/uploads/
