@@ -1,0 +1,51 @@
+import { AvatarFallback } from "@radix-ui/react-avatar";
+import React from "react";
+import { Avatar, AvatarImage } from "./ui/avatar";
+import { Button } from "./ui/button";
+
+const ChannelHeader = ({ channel, user }: any) => {
+  const [isSubscribed, setIsSubscribed] = React.useState(false);
+  return (
+    <div className="w-full">
+      <div className="relative h-32 md:h-48 lg:h-64 bg-gradient-to-r from-blue-400 to-purple-500 overflow-hidden"></div>
+      <div className="px-4 py-6">
+        <div className="flex flex-col md:flex-row gap-6 items-start">
+          <Avatar className="w-20 h-20 md:w-32 md:h-32">
+            <AvatarImage 
+              src={channel?.image} 
+              alt={channel?.channelname}
+            />
+            <AvatarFallback className="text-2xl">
+              {channel?.channelname?.[0] || "U"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 space-y-2">
+            <h1 className="text-2xl md:text-4xl font-bold">{channel?.channelname}</h1>
+            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+              <span>@{channel?.channelname.toLowerCase().replace(/\s+/g, "")}</span>
+            </div>
+            {channel?.description && (
+              <p className="text-sm text-muted-foreground max-w-2xl">
+                {channel?.description}
+              </p>
+            )}
+          </div>
+          {user && user?._id === channel?._id && (
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setIsSubscribed(!isSubscribed)}
+                className={
+                  isSubscribed ? "bg-muted" : "bg-red-600 hover:bg-red-700"
+                }
+              >
+                {isSubscribed ? "Subscribed" : "Subscribe"}
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ChannelHeader;
