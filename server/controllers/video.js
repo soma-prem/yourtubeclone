@@ -2,7 +2,7 @@ import video from "../Modals/video.js";
 import users from "../Modals/Auth.js";
 import path from "path";
 import fs from "fs";
-import { uploadBufferToGcs } from "../lib/gcs.js";
+import { uploadBufferToCloudinary } from "../lib/cloudinary.js";
 
 export const uploadvideo = async (req, res) => {
   if (req.file === undefined) {
@@ -12,7 +12,7 @@ export const uploadvideo = async (req, res) => {
         const ext = path.extname(req.file.originalname) || ".mp4";
         const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
         const destination = `videos/${req.file.fieldname}-${uniqueSuffix}${ext}`;
-        const publicUrl = await uploadBufferToGcs({
+        const publicUrl = await uploadBufferToCloudinary({
           buffer: req.file.buffer,
           contentType: req.file.mimetype,
           destination
