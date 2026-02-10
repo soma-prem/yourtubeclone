@@ -6,7 +6,6 @@ import {
 } from "firebase/auth";
 import { auth, provider } from "./firebase.js";
 import axiosInstance from "./axiosinstance";
-import { User } from "lucide-react";
 import { isSouthIndia, isWithinTimeRange } from "./geoUtils";
 import { toast } from "sonner";
 
@@ -25,6 +24,24 @@ export const UserProvider = ({ children }) => {
     target: null
   });
   const [otpLoading, setOtpLoading] = useState(false);
+  const OTP_BLOCK_MS = 10 * 60 * 1000;
+
+  const isOtpBlocked = () => {
+    if (typeof window === "undefined") return false;
+    const raw = localStorage.getItem("otp_block_until");
+    const until = raw ? Number(raw) : 0;
+    return until > Date.now();
+  };
+
+  const setOtpBlock = () => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("otp_block_until", String(Date.now() + OTP_BLOCK_MS));
+  };
+
+  const clearOtpBlock = () => {
+    if (typeof window === "undefined") return;
+    localStorage.removeItem("otp_block_until");
+  };
 
   const applyThemeForState = (stateName) => {
     const isSouth = isSouthIndia(stateName || "");
@@ -73,6 +90,7 @@ export const UserProvider = ({ children }) => {
       localStorage.setItem("user", JSON.stringify(userData));
       console.log("User saved to localStorage");
     }
+    clearOtpBlock();
   };
 
   const logout = async () => {
@@ -90,6 +108,10 @@ export const UserProvider = ({ children }) => {
   const handleAuthStateChange = async () => {
     console.log("Starting authentication process...");
     try {
+      if (isOtpBlocked()) {
+        console.log("OTP flow blocked to prevent spam.");
+        return;
+      }
       const result = await signInWithPopup(auth, provider);
       const firebaseuser = result.user;
       console.log("Firebase user signed in:", firebaseuser);
@@ -110,6 +132,7 @@ export const UserProvider = ({ children }) => {
         if (typeof window !== 'undefined') {
           localStorage.removeItem("user");
         }
+        setOtpBlock();
         setOtpFlow({
           isOpen: true,
           step: "phone",
@@ -126,6 +149,7 @@ export const UserProvider = ({ children }) => {
         if (typeof window !== 'undefined') {
           localStorage.removeItem("user");
         }
+        setOtpBlock();
         setOtpFlow({
           isOpen: true,
           step: "otp",
@@ -152,6 +176,10 @@ export const UserProvider = ({ children }) => {
       console.log("Firebase auth state changed:", firebaseuser);
       if (firebaseuser) {
         try {
+          if (isOtpBlocked()) {
+            console.log("OTP flow blocked to prevent spam.");
+            return;
+          }
           const region = locationData?.region || "Unknown";
           const payload = {
             email: firebaseuser.email,
@@ -168,6 +196,7 @@ export const UserProvider = ({ children }) => {
             if (typeof window !== 'undefined') {
               localStorage.removeItem("user");
             }
+            setOtpBlock();
             
             return;
           }

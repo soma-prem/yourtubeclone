@@ -11,7 +11,8 @@ const twilioClient = twilio(
 );
 
 const OTP_TTL_MINUTES = 10;
-const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+const OTP_RESEND_COOLDOWN_MS = 10 * 60 * 1000;
+const OTP_REVERIFY_DAYS = 30;
 
 const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -89,6 +90,19 @@ export const login = async (req, res) => {
 
     existinguser.otpMethod = authMethod;
 
+    const now = new Date();
+    if (existinguser.otpVerifiedAt) {
+      const msSinceVerify = now.getTime() - new Date(existinguser.otpVerifiedAt).getTime();
+      const reverifyMs = OTP_REVERIFY_DAYS * 24 * 60 * 60 * 1000;
+      if (msSinceVerify < reverifyMs) {
+        await existinguser.save();
+        return res.status(200).json({
+          result: existinguser,
+          authMessage: "Signed in."
+        });
+      }
+    }
+
     if (authMethod === "MOBILE_OTP" && !existinguser.phone) {
       await existinguser.save();
       return res.status(200).json({
@@ -98,7 +112,6 @@ export const login = async (req, res) => {
       });
     }
 
-    const now = new Date();
     const hasValidOtp =
       existinguser.otpCode &&
       existinguser.otpExpiresAt &&
@@ -276,6 +289,7 @@ export const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "Invalid OTP. A new OTP has been sent." });
     }
 
+    user.otpVerifiedAt = new Date();
     user.otpCode = undefined;
     user.otpExpiresAt = undefined;
     await user.save();

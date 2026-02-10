@@ -1,24 +1,25 @@
 import comment from "../Modals/comment.js";
 import mongoose from "mongoose";
 
-const sanitizeText = (text) => {
-  if (!text) return "";
-  return text.replace(/[^\p{L}\p{N}\s.,!?'"()_-]/gu, "");
+const isValidComment = (text) => {
+  if (!text) return false;
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  const allowed = /^[\p{L}\p{N}\s.,!?'"()_-]+$/u;
+  return allowed.test(trimmed);
 };
 
 export const postcomment = async (req, res) => {
   const { videoid, userid, commentbody, usercommented, city, language } = req.body;
 
-  const cleanCommentBody = sanitizeText(commentbody);
-  
-  if (!cleanCommentBody.trim()) {
+  if (!isValidComment(commentbody)) {
      return res.status(400).json({ message: "Comment contains invalid characters." });
   }
 
   const newComment = new comment({
     videoid,
     userid,
-    commentbody: cleanCommentBody, 
+    commentbody: commentbody.trim(), 
     usercommented,
     city: city || "Unknown",
     language: language || "en", 
@@ -43,16 +44,14 @@ export const editcomment = async (req, res) => {
     return res.status(404).send("comment unavailable");
   }
 
-  const cleanCommentBody = sanitizeText(commentbody);
-
-  if (!cleanCommentBody.trim()) {
+  if (!isValidComment(commentbody)) {
      return res.status(400).json({ message: "Comment contains invalid characters." });
   }
 
   try {
     const updatecomment = await comment.findByIdAndUpdate(
       _id, 
-      { $set: { commentbody: cleanCommentBody } },
+      { $set: { commentbody: commentbody.trim() } },
       { new: true }
     );
     res.status(200).json(updatecomment);

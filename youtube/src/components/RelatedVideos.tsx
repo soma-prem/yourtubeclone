@@ -1,6 +1,7 @@
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import React from "react";
+import { getMediaUrl } from "@/lib/mediaUrl";
 
 const RelatedVideos = ({ videos }: { videos: any[] }) => {
   if (!videos || videos.length === 0) return null;
@@ -12,7 +13,7 @@ const RelatedVideos = ({ videos }: { videos: any[] }) => {
           <div className="relative w-40 aspect-video bg-muted rounded overflow-hidden flex-shrink-0">
             <video 
                 className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-200" 
-                src={`${process.env.BACKEND_URL}/${vid.filepath}`}
+                src={getMediaUrl(vid.filepath)}
                 muted
                 preload="metadata"
             />

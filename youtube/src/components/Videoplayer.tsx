@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect, useState } from "react";
+import { getMediaUrl } from "@/lib/mediaUrl";
 import type { PointerEvent } from "react";
 
 interface VideoPlayerProps {
@@ -9,6 +10,7 @@ interface VideoPlayerProps {
     videotitle: string;
     filepath: string;
   };
+  watchTimeLimit?: number; // minutes, -1 for unlimited
   onNextVideo?: () => void;
   onOpenComments?: () => void;
   onCloseSite?: () => void;
@@ -16,11 +18,13 @@ interface VideoPlayerProps {
 
 export default function VideoPlayer({
   video,
+  watchTimeLimit = -1,
   onNextVideo,
   onOpenComments,
   onCloseSite
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [limitReached, setLimitReached] = useState(false);
   const tapRef = useRef<{
     lastTime: number;
     count: number;
@@ -38,6 +42,7 @@ export default function VideoPlayer({
   const togglePlay = () => {
     const el = videoRef.current;
     if (!el) return;
+    if (limitReached) return;
     if (el.paused) {
       el.play().catch(() => {});
     } else {
@@ -48,9 +53,30 @@ export default function VideoPlayer({
   const seek = (delta: number) => {
     const el = videoRef.current;
     if (!el) return;
+    if (limitReached) return;
     const next = Math.max(0, Math.min(el.duration || 0, el.currentTime + delta));
     el.currentTime = next;
   };
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    setLimitReached(false);
+    if (!watchTimeLimit || watchTimeLimit < 0) return;
+    const limitSeconds = watchTimeLimit * 60;
+
+    const onTimeUpdate = () => {
+      if (el.currentTime >= limitSeconds) {
+        el.pause();
+        setLimitReached(true);
+      }
+    };
+
+    el.addEventListener("timeupdate", onTimeUpdate);
+    return () => {
+      el.removeEventListener("timeupdate", onTimeUpdate);
+    };
+  }, [video?._id, watchTimeLimit]);
 
   const handleTap = (e: PointerEvent<HTMLDivElement>) => {
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
@@ -126,11 +152,21 @@ export default function VideoPlayer({
         poster={`/placeholder.svg?height=480&width=854`}
       >
         <source
-          src={`${process.env.BACKEND_URL}/${video?.filepath}`}
+          src={getMediaUrl(video?.filepath)}
           type="video/mp4"
         />
         Your browser does not support the video tag.
       </video>
+      {limitReached && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white text-center px-4">
+          <div className="space-y-2">
+            <div className="text-lg font-semibold">Watch limit reached</div>
+            <div className="text-sm opacity-90">
+              Upgrade your plan to continue watching.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

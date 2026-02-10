@@ -14,6 +14,7 @@ const userschema = new mongoose.Schema({
   otpExpiresAt: { type: Date },
   otpMethod: { type: String },
   otpLastSentAt: { type: Date },
+  otpVerifiedAt: { type: Date },
 
   
   plan: { 

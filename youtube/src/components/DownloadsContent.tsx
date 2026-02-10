@@ -7,6 +7,7 @@ import { Download, Play, FileVideo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/lib/AuthContext";
 import axiosInstance from "@/lib/axiosinstance";
+import { getMediaUrl } from "@/lib/mediaUrl";
 
 export default function DownloadsContent() {
   const [downloads, setDownloads] = useState<any[]>([]);
@@ -76,7 +77,7 @@ export default function DownloadsContent() {
                   {item.videoId ? (
                     <Link href={`/watches/${item.videoId._id}`}>
                         <video
-                        src={`${process.env.BACKEND_URL}/${item.videoId.filepath}`}
+                        src={getMediaUrl(item.videoId.filepath)}
                         className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-200"
                         />
                     </Link>

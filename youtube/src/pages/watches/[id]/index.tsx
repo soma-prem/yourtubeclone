@@ -15,6 +15,7 @@ const WatchPage = () => {
   const [currentVideo, setCurrentVideo] = useState<any>(null); 
   const [allVideos, setAllVideos] = useState<any[]>([]);       
   const [loading, setLoading] = useState(true);
+  const [watchTimeLimit, setWatchTimeLimit] = useState<number>(5);
   const commentsRef = useRef<HTMLDivElement>(null);
 
   
@@ -39,6 +40,24 @@ const WatchPage = () => {
 
     fetchVideoData();
   }, [id]);
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      if (!user) {
+        setWatchTimeLimit(5);
+        return;
+      }
+      try {
+        const res = await axiosInstance.get(`/user/status/${user._id}`);
+        const limit = Number(res.data.watchTimeLimit);
+        setWatchTimeLimit(Number.isFinite(limit) ? limit : 5);
+      } catch (error) {
+        console.error("Error fetching status:", error);
+        setWatchTimeLimit(5);
+      }
+    };
+    fetchStatus();
+  }, [user]);
 
   
   useEffect(() => {
@@ -101,6 +120,7 @@ const WatchPage = () => {
           <div className="lg:col-span-2 space-y-4">
             <VideoPlayer
               video={currentVideo}
+              watchTimeLimit={watchTimeLimit}
               onNextVideo={handleNextVideo}
               onOpenComments={handleOpenComments}
               onCloseSite={handleCloseSite}

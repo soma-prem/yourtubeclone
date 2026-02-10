@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useUser } from "@/lib/AuthContext";
 import axiosInstance from "@/lib/axiosinstance";
+import { getMediaUrl } from "@/lib/mediaUrl";
 
 export default function LikedVideosContent() {
   const [likedVideos, setLikedVideos] = useState<any[]>([]);
@@ -115,7 +116,7 @@ export default function LikedVideosContent() {
               >
                 <div className="relative w-40 aspect-video bg-muted rounded overflow-hidden">
                   <video
-                    src={`${process.env.BACKEND_URL}/${item.videoid.filepath}`}
+                    src={getMediaUrl(item.videoid.filepath)}
                     className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-200"
                   />
                 </div>
