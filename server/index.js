@@ -46,9 +46,9 @@ const transporter = nodemailer.createTransport({
 const upload = multer({ storage: multer.memoryStorage() });
 
 const allowedOrigins = [
-  process.env.CLIENT_URL,
-  process.env.CLIENT_URL?.replace(/\/+$/, ""),
-].filter(Boolean);
+  "https://yourtubeclone-somaprem103-8dmdehghn-financeaiadvisors-projects.vercel.app",
+  "https://yourtubeclone-somaprem103-8dmdehghn-financeaiadvisors-projects.vercel.app/".replace(/\/+$/, "")
+];
 
 app.use(cors({
   origin: (origin, callback) => {
