@@ -45,15 +45,15 @@ const transporter = nodemailer.createTransport({
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-const allowedOrigins = [
-  "https://yourtubeclone-somaprem103-8dmdehghn-financeaiadvisors-projects.vercel.app",
-  "https://yourtubeclone-somaprem103-8dmdehghn-financeaiadvisors-projects.vercel.app/".replace(/\/+$/, "")
+const allowedOriginRegexes = [
+  /^https:\/\/.*\.vercel\.app$/,
+  /^http:\/\/localhost:\d+$/,
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (allowedOriginRegexes.some((re) => re.test(origin))) return callback(null, true);
     return callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
