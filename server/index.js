@@ -45,7 +45,19 @@ const transporter = nodemailer.createTransport({
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-app.use(cors());
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  process.env.CLIENT_URL?.replace(/\/+$/, ""),
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
 
 
 
@@ -286,8 +298,8 @@ app.post('/create-checkout-session', async (req, res) => {
       ],
       mode: 'payment',
       
-      success_url: `${process.env.CLIENT_URL || "http://localhost:3000"}/premium`,
-      cancel_url: `${process.env.CLIENT_URL || "http://localhost:3000"}/premium`,
+      success_url: `https://yourtubeclone-c1ohy3vlf-financeaiadvisors-projects.vercel.app/premium`,
+      cancel_url: `https://yourtubeclone-c1ohy3vlf-financeaiadvisors-projects.vercel.app/premium`,
       customer_email: email,
       metadata: {
         userId: userId,

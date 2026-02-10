@@ -32,8 +32,8 @@ export const createCheckoutSession = async (req, res) => {
         quantity: 1,
       }],
       mode: "payment",
-      success_url: `${process.env.CLIENT_URL}/premium`, 
-      cancel_url: `${process.env.CLIENT_URL}/premium`,
+      success_url: `https://yourtubeclone-c1ohy3vlf-financeaiadvisors-projects.vercel.app/premium`, 
+      cancel_url: `https://yourtubeclone-c1ohy3vlf-financeaiadvisors-projects.vercel.app/premium`,
     });
 
     res.json({ url: session.url });
