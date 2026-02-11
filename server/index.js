@@ -298,8 +298,8 @@ app.post('/create-checkout-session', async (req, res) => {
       ],
       mode: 'payment',
       
-      success_url: `https://yourtubeclone-c1ohy3vlf-financeaiadvisors-projects.vercel.app/premium`,
-      cancel_url: `https://yourtubeclone-c1ohy3vlf-financeaiadvisors-projects.vercel.app/premium`,
+      success_url: `https://yourtubeclone-9lk2b2cq6-financeaiadvisors-projects.vercel.app/premium`,
+      cancel_url: `https://yourtubeclone-9lk2b2cq6-financeaiadvisors-projects.vercel.app/premium`,
       customer_email: email,
       metadata: {
         userId: userId,
