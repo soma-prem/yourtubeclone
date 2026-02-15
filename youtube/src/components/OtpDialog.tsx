@@ -39,7 +39,7 @@ const OtpDialog = () => {
             <Input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter email for OTP"
+              placeholder="Enter your email address"
               type="email"
             />
             <Button
