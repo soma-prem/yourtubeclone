@@ -6,17 +6,16 @@ import { Input } from "./ui/input";
 import { useUser } from "@/lib/AuthContext";
 
 const OtpDialog = () => {
-  const { otpFlow, otpLoading, submitPhone, requestEmailOtp, verifyOtp, resendOtp, switchToEmailOtp, closeOtp } = useUser();
-  const [phone, setPhone] = useState("");
+  const { otpFlow, otpLoading, requestEmailOtp, verifyOtp, resendOtp, switchToEmailOtp, closeOtp } = useUser();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
 
-  const isPhoneStep = otpFlow?.step === "phone";
+  const isEmailStep = otpFlow?.step === "email";
 
   const handleSubmit = async () => {
-    if (isPhoneStep) {
-      await submitPhone(phone);
-      setPhone("");
+    if (isEmailStep) {
+      await requestEmailOtp(email);
+      setEmail("");
     } else {
       await verifyOtp(code);
       setCode("");
@@ -28,22 +27,14 @@ const OtpDialog = () => {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {isPhoneStep ? "Add Phone Number" : "Verify OTP"}
+            {isEmailStep ? "Email Verification" : "Verify OTP"}
           </DialogTitle>
         </DialogHeader>
 
-        {isPhoneStep ? (
+        {isEmailStep ? (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Enter your mobile number (E.164 format recommended, e.g. +919876543210).
-            </p>
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91..."
-            />
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
-              Twilio trial mode sends SMS only to verified numbers. You can use email OTP instead.
+              Mobile OTP is not possible in Twilio trial mode. Enter your email to receive OTP.
             </div>
             <Input
               value={email}
@@ -106,7 +97,7 @@ const OtpDialog = () => {
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={otpLoading}>
-            {otpLoading ? "Processing..." : isPhoneStep ? "Send OTP" : "Verify"}
+            {otpLoading ? "Processing..." : isEmailStep ? "Send OTP" : "Verify"}
           </Button>
         </DialogFooter>
       </DialogContent>

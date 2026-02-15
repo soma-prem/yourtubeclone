@@ -135,12 +135,12 @@ export const UserProvider = ({ children }) => {
         setOtpBlock();
         setOtpFlow({
           isOpen: true,
-          step: "phone",
+          step: "email",
           userId: response.data.userId,
           method: response.data.otpMethod,
           target: null
         });
-        toast.info("Twilio trial may block unverified numbers. You can send OTP to email from this popup.");
+        toast.info("Mobile OTP is not possible in trial mode. Please use email OTP.");
         return;
       }
 
