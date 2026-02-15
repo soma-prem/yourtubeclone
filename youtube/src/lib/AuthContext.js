@@ -288,6 +288,29 @@ export const UserProvider = ({ children }) => {
             setOtpLoading(false);
           }
         },
+        switchToEmailOtp: async () => {
+          if (!otpFlow.userId) return;
+          setOtpLoading(true);
+          try {
+            const res = await axiosInstance.post("/user/request-otp", {
+              userId: otpFlow.userId,
+              method: "EMAIL_OTP"
+            });
+            setOtpFlow({
+              isOpen: true,
+              step: "otp",
+              userId: res.data.userId,
+              method: res.data.otpMethod,
+              target: res.data.otpTarget || null
+            });
+            toast.success(res.data?.authMessage || "Switched to email OTP.");
+          } catch (err) {
+            console.log("Switch to email OTP error:", err);
+            toast.error("Failed to switch to email OTP.");
+          } finally {
+            setOtpLoading(false);
+          }
+        },
         closeOtp: () => setOtpFlow({ isOpen: false, step: null, userId: null, method: null, target: null })
       }}
     >

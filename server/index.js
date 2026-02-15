@@ -8,6 +8,7 @@ import multer from "multer";
 import path from "path";
 import Stripe from "stripe"; 
 import nodemailer from "nodemailer"; 
+import { Resend } from "resend";
 
 const users = (await import("./Modals/Auth.js")).default;
 
@@ -42,6 +43,16 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+const getWebhookSecrets = () => {
+  const raw = process.env.STRIPE_WEBHOOK_SECRET || "";
+  return raw
+    .split(",")
+    .map((secret) => secret.trim())
+    .filter(Boolean);
+};
+
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -66,12 +77,34 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   console.log("🔔 Webhook received!"); 
 
   const sig = req.headers['stripe-signature'];
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const endpointSecrets = getWebhookSecrets();
 
   let event;
 
+  if (!sig) {
+    console.error("Webhook Error: Missing stripe-signature header");
+    return res.status(400).send("Webhook Error: Missing stripe-signature header");
+  }
+
+  if (endpointSecrets.length === 0) {
+    console.error("Webhook Error: STRIPE_WEBHOOK_SECRET is missing");
+    return res.status(500).send("Webhook Error: Server webhook secret is missing");
+  }
+
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    let verified = false;
+    for (const secret of endpointSecrets) {
+      try {
+        event = stripe.webhooks.constructEvent(req.body, sig, secret);
+        verified = true;
+        break;
+      } catch {
+        
+      }
+    }
+    if (!verified) {
+      throw new Error("No signatures found matching the expected signature for payload.");
+    }
     console.log(`✅ Webhook signature verified. Event Type: ${event.type}`); 
   } catch (err) {
     console.error(`❌ Webhook Error: ${err.message}`);
@@ -106,6 +139,10 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       
       
       console.log(`📧 Attempting to send email to ${customerEmail}...`);
+
+      const paymentIntentId = typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : session.payment_intent?.id || "N/A";
 
       const mailOptions = {
         from: process.env.EMAIL_USER,
@@ -162,7 +199,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
                                 </tr>
                                 <tr>
                                   <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #666666; font-size: 14px;">Transaction ID</td>
-                                  <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #333333; font-weight: bold; font-size: 14px; text-align: right;">${session.payment_intent.slice(-10)}...</td>
+                                  <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #333333; font-weight: bold; font-size: 14px; text-align: right;">${paymentIntentId === "N/A" ? "N/A" : `${paymentIntentId.slice(-10)}...`}</td>
                                 </tr>
                                 <tr>
                                   <td style="padding-top: 15px; color: #666666; font-size: 14px;"><strong>New Benefit</strong></td>
@@ -202,13 +239,28 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         `
       };
 
-      transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-          console.error("❌ Email Send Error:", error); 
+      try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log("✅ Email Sent Successfully:", info.response || info.messageId);
+      } catch (smtpError) {
+        console.error("❌ Email Send Error (SMTP):", smtpError.message);
+
+        if (resend && process.env.RESEND_FROM) {
+          try {
+            await resend.emails.send({
+              from: process.env.RESEND_FROM,
+              to: customerEmail,
+              subject: mailOptions.subject,
+              html: mailOptions.html
+            });
+            console.log("✅ Email Sent Successfully (Resend fallback)");
+          } catch (resendError) {
+            console.error("❌ Email Send Error (Resend):", resendError.message);
+          }
         } else {
-          console.log("✅ Email Sent Successfully:", info.response); 
+          console.error("ℹ️ Resend fallback unavailable. Set RESEND_API_KEY and RESEND_FROM.");
         }
-      });
+      }
 
     } catch (err) {
       console.error("❌ Processing failed:", err);

@@ -6,7 +6,7 @@ import { Input } from "./ui/input";
 import { useUser } from "@/lib/AuthContext";
 
 const OtpDialog = () => {
-  const { otpFlow, otpLoading, submitPhone, verifyOtp, resendOtp, closeOtp } = useUser();
+  const { otpFlow, otpLoading, submitPhone, verifyOtp, resendOtp, switchToEmailOtp, closeOtp } = useUser();
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
 
@@ -47,6 +47,21 @@ const OtpDialog = () => {
             <p className="text-sm text-muted-foreground">
               Enter the 6-digit OTP sent to {otpFlow?.target || "your device"}.
             </p>
+            {otpFlow?.method === "MOBILE_OTP" && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                Twilio trial mode can send SMS only to verified numbers. If SMS is not received, use email OTP.
+                <div className="mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={switchToEmailOtp}
+                    disabled={otpLoading}
+                  >
+                    Use Email OTP
+                  </Button>
+                </div>
+              </div>
+            )}
             <Input
               value={code}
               onChange={(e) => setCode(e.target.value)}

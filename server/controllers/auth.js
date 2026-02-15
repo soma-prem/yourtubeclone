@@ -53,6 +53,31 @@ const sendSmsOtp = async (phone, code) => {
   });
 };
 
+const deliverOtp = async (user, code, preferredMethod) => {
+  const method = preferredMethod === "MOBILE_OTP" ? "MOBILE_OTP" : "EMAIL_OTP";
+
+  if (method === "MOBILE_OTP") {
+    try {
+      await sendSmsOtp(user.phone, code);
+      return { method: "MOBILE_OTP", fellBackToEmail: false };
+    } catch (error) {
+      // Twilio trial can fail for unverified numbers; fallback to email OTP.
+      console.error("SMS OTP failed, falling back to email OTP:", error.message);
+      await sendEmailOtp(user.email, code);
+      user.otpMethod = "EMAIL_OTP";
+      await user.save();
+      return { method: "EMAIL_OTP", fellBackToEmail: true };
+    }
+  }
+
+  await sendEmailOtp(user.email, code);
+  if (user.otpMethod !== "EMAIL_OTP") {
+    user.otpMethod = "EMAIL_OTP";
+    await user.save();
+  }
+  return { method: "EMAIL_OTP", fellBackToEmail: false };
+};
+
 
 export const otpRoutingMiddleware = (req, res, next) => {
   const { state } = req.body || {};
@@ -119,24 +144,24 @@ export const login = async (req, res) => {
     const lastSentAt = existinguser.otpLastSentAt ? new Date(existinguser.otpLastSentAt) : null;
     const canResend = !lastSentAt || now.getTime() - lastSentAt.getTime() > OTP_RESEND_COOLDOWN_MS;
 
+    let deliveryMethod = authMethod;
+    let fellBackToEmail = false;
+
     if (!hasValidOtp) {
       const code = generateOtp();
       existinguser.otpCode = code;
       existinguser.otpExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
       existinguser.otpLastSentAt = now;
       await existinguser.save();
-
-      if (authMethod === "EMAIL_OTP") {
-        await sendEmailOtp(existinguser.email, code);
-      } else {
-        await sendSmsOtp(existinguser.phone, code);
-      }
+      const result = await deliverOtp(existinguser, code, authMethod);
+      deliveryMethod = result.method;
+      fellBackToEmail = result.fellBackToEmail;
     } else if (!canResend) {
       return res.status(200).json({
         otpRequired: true,
         userId: existinguser._id,
-        otpMethod: authMethod,
-        otpTarget: authMethod === "EMAIL_OTP" ? maskEmail(existinguser.email) : maskPhone(existinguser.phone),
+        otpMethod: existinguser.otpMethod || authMethod,
+        otpTarget: (existinguser.otpMethod || authMethod) === "EMAIL_OTP" ? maskEmail(existinguser.email) : maskPhone(existinguser.phone),
         authMessage: `Please wait before requesting another OTP.`
       });
     }
@@ -144,11 +169,15 @@ export const login = async (req, res) => {
     res.status(200).json({
       otpRequired: true,
       userId: existinguser._id,
-      otpMethod: authMethod,
-      otpTarget: authMethod === "EMAIL_OTP" ? maskEmail(existinguser.email) : maskPhone(existinguser.phone),
+      otpMethod: hasValidOtp ? (existinguser.otpMethod || authMethod) : deliveryMethod,
+      otpTarget: (hasValidOtp ? (existinguser.otpMethod || authMethod) : deliveryMethod) === "EMAIL_OTP"
+        ? maskEmail(existinguser.email)
+        : maskPhone(existinguser.phone),
       authMessage: hasValidOtp
-        ? `OTP already sent. Please check your ${authMethod === "EMAIL_OTP" ? "email" : "mobile number"}.`
-        : `Verification code sent to your ${authMethod === "EMAIL_OTP" ? "email" : "mobile number"}.`
+        ? `OTP already sent. Please check your ${(existinguser.otpMethod || authMethod) === "EMAIL_OTP" ? "email" : "mobile number"}.`
+        : fellBackToEmail
+          ? "SMS OTP unavailable in trial mode. Verification code sent to your email."
+          : `Verification code sent to your ${deliveryMethod === "EMAIL_OTP" ? "email" : "mobile number"}.`
     });
   } catch (err) {
     res.status(500).json({ message: "Database connection failed", error: err.message });
@@ -177,13 +206,19 @@ export const updatePhone = async (req, res) => {
 };
 
 export const requestOtp = async (req, res) => {
-  const { userId } = req.body;
+  const { userId, method } = req.body;
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     return res.status(400).json({ message: "Invalid user ID" });
   }
   try {
     const user = await users.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    const requestedMethod = method === "MOBILE_OTP" || method === "EMAIL_OTP" ? method : null;
+    if (requestedMethod && requestedMethod !== user.otpMethod) {
+      user.otpMethod = requestedMethod;
+      await user.save();
+    }
 
     const authMethod = user.otpMethod || "EMAIL_OTP";
     if (authMethod === "MOBILE_OTP" && !user.phone) {
@@ -198,18 +233,18 @@ export const requestOtp = async (req, res) => {
     const lastSentAt = user.otpLastSentAt ? new Date(user.otpLastSentAt) : null;
     const canResend = !lastSentAt || now.getTime() - lastSentAt.getTime() > OTP_RESEND_COOLDOWN_MS;
 
+    let deliveryMethod = authMethod;
+    let fellBackToEmail = false;
+
     if (!hasValidOtp) {
       const code = generateOtp();
       user.otpCode = code;
       user.otpExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
       user.otpLastSentAt = now;
       await user.save();
-
-      if (authMethod === "EMAIL_OTP") {
-        await sendEmailOtp(user.email, code);
-      } else {
-        await sendSmsOtp(user.phone, code);
-      }
+      const result = await deliverOtp(user, code, authMethod);
+      deliveryMethod = result.method;
+      fellBackToEmail = result.fellBackToEmail;
     } else if (!canResend) {
       return res.status(200).json({
         otpRequired: true,
@@ -223,11 +258,13 @@ export const requestOtp = async (req, res) => {
     res.status(200).json({
       otpRequired: true,
       userId: user._id,
-      otpMethod: authMethod,
-      otpTarget: authMethod === "EMAIL_OTP" ? maskEmail(user.email) : maskPhone(user.phone),
+      otpMethod: deliveryMethod,
+      otpTarget: deliveryMethod === "EMAIL_OTP" ? maskEmail(user.email) : maskPhone(user.phone),
       authMessage: hasValidOtp
-        ? `OTP already sent. Please check your ${authMethod === "EMAIL_OTP" ? "email" : "mobile number"}.`
-        : `Verification code sent to your ${authMethod === "EMAIL_OTP" ? "email" : "mobile number"}.`
+        ? `OTP already sent. Please check your ${deliveryMethod === "EMAIL_OTP" ? "email" : "mobile number"}.`
+        : fellBackToEmail
+          ? "SMS OTP unavailable in trial mode. Verification code sent to your email."
+          : `Verification code sent to your ${deliveryMethod === "EMAIL_OTP" ? "email" : "mobile number"}.`
     });
   } catch (error) {
     res.status(500).json({ message: "Failed to send OTP", error: error.message });
@@ -264,12 +301,12 @@ export const verifyOtp = async (req, res) => {
       user.otpExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
       user.otpLastSentAt = now;
       await user.save();
-      if (authMethod === "EMAIL_OTP") {
-        await sendEmailOtp(user.email, newCode);
-      } else {
-        await sendSmsOtp(user.phone, newCode);
-      }
-      return res.status(400).json({ message: "OTP expired. A new OTP has been sent." });
+      const result = await deliverOtp(user, newCode, authMethod);
+      return res.status(400).json({
+        message: result.fellBackToEmail
+          ? "OTP expired. SMS unavailable in trial mode. A new OTP was sent to your email."
+          : "OTP expired. A new OTP has been sent."
+      });
     }
 
     if (String(user.otpCode) !== String(code)) {
@@ -281,12 +318,12 @@ export const verifyOtp = async (req, res) => {
       user.otpExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
       user.otpLastSentAt = now;
       await user.save();
-      if (authMethod === "EMAIL_OTP") {
-        await sendEmailOtp(user.email, newCode);
-      } else {
-        await sendSmsOtp(user.phone, newCode);
-      }
-      return res.status(400).json({ message: "Invalid OTP. A new OTP has been sent." });
+      const result = await deliverOtp(user, newCode, authMethod);
+      return res.status(400).json({
+        message: result.fellBackToEmail
+          ? "Invalid OTP. SMS unavailable in trial mode. A new OTP was sent to your email."
+          : "Invalid OTP. A new OTP has been sent."
+      });
     }
 
     user.otpVerifiedAt = new Date();
