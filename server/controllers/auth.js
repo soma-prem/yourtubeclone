@@ -86,8 +86,9 @@ const sendSmsOtp = async (phone, code) => {
   });
 };
 
-const deliverOtp = async (user, code, preferredMethod) => {
+const deliverOtp = async (user, code, preferredMethod, emailTarget) => {
   const method = preferredMethod === "MOBILE_OTP" ? "MOBILE_OTP" : "EMAIL_OTP";
+  const targetEmail = emailTarget || user.email;
 
   if (method === "MOBILE_OTP") {
     try {
@@ -96,14 +97,14 @@ const deliverOtp = async (user, code, preferredMethod) => {
     } catch (error) {
       // Twilio trial can fail for unverified numbers; fallback to email OTP.
       console.error("SMS OTP failed, falling back to email OTP:", error.message);
-      await sendEmailOtp(user.email, code);
+      await sendEmailOtp(targetEmail, code);
       user.otpMethod = "EMAIL_OTP";
       await user.save();
       return { method: "EMAIL_OTP", fellBackToEmail: true };
     }
   }
 
-  await sendEmailOtp(user.email, code);
+  await sendEmailOtp(targetEmail, code);
   if (user.otpMethod !== "EMAIL_OTP") {
     user.otpMethod = "EMAIL_OTP";
     await user.save();
@@ -239,7 +240,7 @@ export const updatePhone = async (req, res) => {
 };
 
 export const requestOtp = async (req, res) => {
-  const { userId, method } = req.body;
+  const { userId, method, email } = req.body;
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     return res.status(400).json({ message: "Invalid user ID" });
   }
@@ -254,6 +255,17 @@ export const requestOtp = async (req, res) => {
     }
 
     const authMethod = user.otpMethod || "EMAIL_OTP";
+    const requestedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const useCustomEmail = authMethod === "EMAIL_OTP" && requestedEmail.length > 0;
+    const emailTarget = useCustomEmail ? requestedEmail : user.email;
+
+    if (useCustomEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(requestedEmail)) {
+        return res.status(400).json({ message: "Invalid email address" });
+      }
+    }
+
     if (authMethod === "MOBILE_OTP" && !user.phone) {
       return res.status(400).json({ message: "Phone number required" });
     }
@@ -275,7 +287,7 @@ export const requestOtp = async (req, res) => {
       user.otpExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
       user.otpLastSentAt = now;
       await user.save();
-      const result = await deliverOtp(user, code, authMethod);
+      const result = await deliverOtp(user, code, authMethod, emailTarget);
       deliveryMethod = result.method;
       fellBackToEmail = result.fellBackToEmail;
     } else if (!canResend) {
@@ -292,7 +304,7 @@ export const requestOtp = async (req, res) => {
       otpRequired: true,
       userId: user._id,
       otpMethod: deliveryMethod,
-      otpTarget: deliveryMethod === "EMAIL_OTP" ? maskEmail(user.email) : maskPhone(user.phone),
+      otpTarget: deliveryMethod === "EMAIL_OTP" ? maskEmail(emailTarget) : maskPhone(user.phone),
       authMessage: hasValidOtp
         ? `OTP already sent. Please check your ${deliveryMethod === "EMAIL_OTP" ? "email" : "mobile number"}.`
         : fellBackToEmail

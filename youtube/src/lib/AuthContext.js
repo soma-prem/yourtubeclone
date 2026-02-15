@@ -140,7 +140,7 @@ export const UserProvider = ({ children }) => {
           method: response.data.otpMethod,
           target: null
         });
-        toast.info("Please add your phone number to receive OTP.");
+        toast.info("Twilio trial may block unverified numbers. You can send OTP to email from this popup.");
         return;
       }
 
@@ -246,6 +246,31 @@ export const UserProvider = ({ children }) => {
           } catch (err) {
             console.log("Phone update/OTP error:", err);
             toast.error("Failed to send OTP.");
+          } finally {
+            setOtpLoading(false);
+          }
+        },
+        requestEmailOtp: async (email) => {
+          if (!otpFlow.userId) return;
+          setOtpLoading(true);
+          try {
+            const res = await axiosInstance.post("/user/request-otp", {
+              userId: otpFlow.userId,
+              method: "EMAIL_OTP",
+              email
+            });
+            setOtpFlow({
+              isOpen: true,
+              step: "otp",
+              userId: res.data.userId,
+              method: res.data.otpMethod,
+              target: res.data.otpTarget || null
+            });
+            toast.success(res.data?.authMessage || "Verification code sent to email.");
+          } catch (err) {
+            console.log("Email OTP request error:", err);
+            const message = err?.response?.data?.message || "Failed to send email OTP.";
+            toast.error(message);
           } finally {
             setOtpLoading(false);
           }

@@ -35,13 +35,16 @@ console.log("Email Pass:", process.env.EMAIL_PASS ? "Set" : "Missing");
 console.log("--------------------");
 
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const transporter =
+  process.env.EMAIL_USER && process.env.EMAIL_PASS
+    ? nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      })
+    : null;
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -51,6 +54,47 @@ const getWebhookSecrets = () => {
     .split(",")
     .map((secret) => secret.trim())
     .filter(Boolean);
+};
+
+const sendPaymentEmail = async ({ to, subject, html }) => {
+  if (resend && process.env.RESEND_FROM) {
+    try {
+      await resend.emails.send({
+        from: process.env.RESEND_FROM,
+        to,
+        subject,
+        html
+      });
+      console.log("✅ Email Sent Successfully (Resend)");
+      return true;
+    } catch (resendError) {
+      console.error("❌ Email Send Error (Resend):", resendError.message);
+    }
+  }
+
+  if (transporter) {
+    try {
+      const smtpResult = await Promise.race([
+        transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to,
+          subject,
+          html
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("SMTP timeout after 15s")), 15000)
+        )
+      ]);
+      console.log("✅ Email Sent Successfully (SMTP):", smtpResult.response || smtpResult.messageId);
+      return true;
+    } catch (smtpError) {
+      console.error("❌ Email Send Error (SMTP):", smtpError.message);
+    }
+  } else {
+    console.error("ℹ️ SMTP is not configured. Set EMAIL_USER and EMAIL_PASS for SMTP fallback.");
+  }
+
+  return false;
 };
 
 
@@ -239,28 +283,11 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         `
       };
 
-      try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log("✅ Email Sent Successfully:", info.response || info.messageId);
-      } catch (smtpError) {
-        console.error("❌ Email Send Error (SMTP):", smtpError.message);
-
-        if (resend && process.env.RESEND_FROM) {
-          try {
-            await resend.emails.send({
-              from: process.env.RESEND_FROM,
-              to: customerEmail,
-              subject: mailOptions.subject,
-              html: mailOptions.html
-            });
-            console.log("✅ Email Sent Successfully (Resend fallback)");
-          } catch (resendError) {
-            console.error("❌ Email Send Error (Resend):", resendError.message);
-          }
-        } else {
-          console.error("ℹ️ Resend fallback unavailable. Set RESEND_API_KEY and RESEND_FROM.");
-        }
-      }
+      await sendPaymentEmail({
+        to: customerEmail,
+        subject: mailOptions.subject,
+        html: mailOptions.html
+      });
 
     } catch (err) {
       console.error("❌ Processing failed:", err);

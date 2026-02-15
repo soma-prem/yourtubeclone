@@ -6,8 +6,9 @@ import { Input } from "./ui/input";
 import { useUser } from "@/lib/AuthContext";
 
 const OtpDialog = () => {
-  const { otpFlow, otpLoading, submitPhone, verifyOtp, resendOtp, switchToEmailOtp, closeOtp } = useUser();
+  const { otpFlow, otpLoading, submitPhone, requestEmailOtp, verifyOtp, resendOtp, switchToEmailOtp, closeOtp } = useUser();
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
 
   const isPhoneStep = otpFlow?.step === "phone";
@@ -41,6 +42,25 @@ const OtpDialog = () => {
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+91..."
             />
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+              Twilio trial mode sends SMS only to verified numbers. You can use email OTP instead.
+            </div>
+            <Input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter email for OTP"
+              type="email"
+            />
+            <Button
+              variant="outline"
+              onClick={async () => {
+                await requestEmailOtp(email);
+                setEmail("");
+              }}
+              disabled={otpLoading || !email.trim()}
+            >
+              Send OTP to Email
+            </Button>
           </div>
         ) : (
           <div className="space-y-4">
