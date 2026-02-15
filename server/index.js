@@ -59,13 +59,19 @@ const getWebhookSecrets = () => {
 const sendPaymentEmail = async ({ to, subject, html }) => {
   if (resend && process.env.RESEND_FROM) {
     try {
-      await resend.emails.send({
+      const resendResult = await resend.emails.send({
         from: process.env.RESEND_FROM,
         to,
         subject,
         html
       });
-      console.log("✅ Email Sent Successfully (Resend)");
+
+      if (resendResult?.error) {
+        throw new Error(resendResult.error.message || "Unknown Resend API error");
+      }
+
+      const resendId = resendResult?.data?.id || resendResult?.id || "unknown-id";
+      console.log("✅ Email accepted by Resend. id:", resendId);
       return true;
     } catch (resendError) {
       console.error("❌ Email Send Error (Resend):", resendError.message);

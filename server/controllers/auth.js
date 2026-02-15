@@ -55,7 +55,13 @@ const sendEmailOtp = async (email, code) => {
         subject: "Your OTP Code",
         text
       });
-      console.log("OTP email sent via Resend:", response?.id || "ok");
+
+      if (response?.error) {
+        throw new Error(response.error.message || "Unknown Resend API error");
+      }
+
+      const resendId = response?.data?.id || response?.id || "unknown-id";
+      console.log("OTP email accepted by Resend. id:", resendId);
       return;
     } catch (error) {
       console.error("Resend OTP send failed:", error.message);
