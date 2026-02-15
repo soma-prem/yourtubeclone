@@ -3,12 +3,23 @@ import users from "../Modals/Auth.js";
 import mongoose from "mongoose";
 import { Resend } from "resend";
 import twilio from "twilio";
+import nodemailer from "nodemailer";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
+const smtpTransporter =
+  process.env.EMAIL_USER && process.env.EMAIL_PASS
+    ? nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        }
+      })
+    : null;
 
 const OTP_TTL_MINUTES = 10;
 const OTP_RESEND_COOLDOWN_MS = 10 * 60 * 1000;
@@ -33,14 +44,36 @@ const maskPhone = (phone = "") => {
 };
 
 const sendEmailOtp = async (email, code) => {
-  const from = process.env.RESEND_FROM;
-  if (!from) throw new Error("RESEND_FROM is missing");
-  await resend.emails.send({
-    from,
-    to: email,
-    subject: "Your OTP Code",
-    text: `Your OTP code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`
-  });
+  const resendFrom = process.env.RESEND_FROM;
+  const text = `Your OTP code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`;
+
+  if (resend && resendFrom) {
+    try {
+      const response = await resend.emails.send({
+        from: resendFrom,
+        to: email,
+        subject: "Your OTP Code",
+        text
+      });
+      console.log("OTP email sent via Resend:", response?.id || "ok");
+      return;
+    } catch (error) {
+      console.error("Resend OTP send failed:", error.message);
+    }
+  }
+
+  if (smtpTransporter) {
+    const info = await smtpTransporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Your OTP Code",
+      text
+    });
+    console.log("OTP email sent via SMTP:", info.response || info.messageId);
+    return;
+  }
+
+  throw new Error("No email provider configured. Set RESEND_API_KEY+RESEND_FROM or EMAIL_USER+EMAIL_PASS.");
 };
 
 const sendSmsOtp = async (phone, code) => {
